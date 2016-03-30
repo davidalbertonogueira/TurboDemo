@@ -1,9 +1,9 @@
 from flask import Flask, request, render_template
 from flask.ext.wtf import Form
 from wtforms import Form, BooleanField, TextField, TextAreaField, PasswordField, RadioField, SelectField, validators
-
 import os
 import sys
+from builtins import range
 
 sys.path.append(os.getcwd())
 
@@ -48,12 +48,15 @@ def turbo_demo():
         #text = form.sentence.data.encode('utf-8')
         text = form.sentence.data # Problems in Spanish with 'A~nos. E'
         language = form.language.data
-        print "Lock acquire"
+        print("Lock acquire")
         lock.acquire()
         #import pdb
         #pdb.set_trace()
         sentences = pipeline.split_sentences(text, language)
-        sentences = [s.encode('utf-8') for s in sentences]
+        if sys.version_info[0] == 2:
+            sentences = [s.encode('utf-8') for s in sentences]
+        #if sys.version_info[0] == 3:
+            #sentences = [s.encode('utf-8') for s in sentences]
 
         entity_tagged_sentence = ''
         parsed_sentence = ''
@@ -73,8 +76,12 @@ def turbo_demo():
                 entity_tags = pipeline.recognize_entities(tokenized_sentence,
                                                       tags, language)
                 entity_tagged_sentence = ''
-                prefixes = [tag[:1] for tag in entity_tags]
-                entities = [tag[2:] for tag in entity_tags]
+                if sys.version_info[0] == 2:
+                    prefixes = [tag[:1] for tag in entity_tags]
+                    entities = [tag[2:] for tag in entity_tags]
+                if sys.version_info[0] == 3:
+                    prefixes = [tag.decode(encoding='UTF-8')[:1] for tag in entity_tags]
+                    entities = [tag.decode(encoding='UTF-8')[2:] for tag in entity_tags]
                 for i, token in enumerate(tokenized_sentence):
                     if prefixes[i] == 'B':
                         entity_tagged_sentence += '[' + entities[i] + ' '
@@ -82,16 +89,31 @@ def turbo_demo():
                     if prefixes[i] != 'O' and \
                             (i == len(tokenized_sentence)-1 or prefixes[i+1] != 'I'):
                         entity_tagged_sentence += '] '
-                print entity_tagged_sentence
+                print(entity_tagged_sentence)
             else:
                 entity_tagged_sentence = ''
 
             heads, deprels = pipeline.parse(tokenized_sentence, tags, lemmas, language)
             parsed_sentence = ''
             for i, token in enumerate(tokenized_sentence):
-                parsed_sentence += str(i+1) + '\t' + token + '\t' + lemmas[i] + \
-                    '\t' + tags[i] + '\t' + tags[i] + '\t' + feats[i] + '\t' + str(heads[i]+1) + \
-                    '\t' + deprels[i] + '\n'
+                if sys.version_info[0] == 2:
+                    parsed_sentence += str(i+1) + '\t' + \
+                    token + '\t' + \
+                    lemmas[i] +  '\t' + \
+                    tags[i] + '\t' + \
+                    tags[i] + '\t' + \
+                    feats[i] + '\t' + \
+                    str(heads[i]+1) + '\t' + \
+                    deprels[i] + '\n'
+                if sys.version_info[0] == 3:
+                    parsed_sentence += str(i+1) + '\t' + \
+                    token + '\t' + \
+                    lemmas[i] + '\t' + \
+                    tags[i].decode(encoding='UTF-8') + '\t' + \
+                    tags[i].decode(encoding='UTF-8') + '\t' + \
+                    feats[i] + '\t' + \
+                    str(heads[i]+1) +  '\t' + \
+                    deprels[i].decode(encoding='UTF-8') + '\n'
             parsed_sentence += '\n'
 
             if pipeline.has_semantic_parser(language):
@@ -100,13 +122,29 @@ def turbo_demo():
                                                          lemmas, heads, deprels,
                                                          language)
                 semantic_parsed_sentence = ''
-                for i, token in enumerate(tokenized_sentence):
-                    semantic_output = predicates[i] + '\t' + '\t'.join(argument_lists[i])
-                    #if len(argument_lists[i]) > 0:
-                    #    semantic_output += '\t' + '\t'.join(argument_lists[i])
-                    semantic_parsed_sentence += str(i+1) + '\t_\t_\t_\t_\t' + token \
-                        + '\t' + lemmas[i] + '\t' + tags[i] + '\t' + str(heads[i]+1) \
-                        + '\t' + deprels[i] + '\t' + semantic_output + '\n'
+                if sys.version_info[0] == 2:
+                    for i, token in enumerate(tokenized_sentence):
+                        semantic_output = predicates[i] + '\t' + '\t'.join(argument_lists[i])
+                        #if len(argument_lists[i]) > 0:
+                        #    semantic_output += '\t' + '\t'.join(argument_lists[i])                    
+                        semantic_parsed_sentence += str(i+1) + '\t_\t_\t_\t_\t' + token + '\t' + \
+                        lemmas[i] + '\t' + \
+                        tags[i] + '\t' + \
+                        str(heads[i]+1)   + '\t' + \
+                        deprels[i] + '\t' + \
+                        semantic_output + '\n'
+                if sys.version_info[0] == 3:
+                    for i, token in enumerate(tokenized_sentence):
+                        semantic_output = predicates[i].decode(encoding='UTF-8') + '\t' + '\t'.join([element.decode(encoding='UTF-8') for element in  argument_lists[i]] )
+                        #if len(argument_lists[i]) > 0:
+                        #    semantic_output += '\t' + '\t'.join(argument_lists[i])
+                        semantic_parsed_sentence += str(i+1) + '\t_\t_\t_\t_\t' + token + '\t' + \
+                        lemmas[i] + '\t' + \
+                        tags[i].decode(encoding='UTF-8') + '\t' + \
+                        str(heads[i]+1)  + '\t' + \
+                        deprels[i].decode(encoding='UTF-8') + '\t' +  \
+                        semantic_output + '\n'
+                    
                 semantic_parsed_sentence += '\n'
             else:
                 semantic_parsed_sentence = ''
@@ -127,7 +165,7 @@ def turbo_demo():
                     tags, lemmas, feats = pipeline.tag(tokenized_sentence, language)
                     heads, deprels = pipeline.parse(tokenized_sentence, tags, lemmas, language)
                     # TODO(atm): replace this by actual entity tags.
-                    entity_tags = ['*' for i in xrange(len(tags))]
+                    entity_tags = ['*' for i in range(len(tags))]
                     all_tokenized_sentences.append(tokenized_sentence)
                     all_tags.append(tags)
                     all_lemmas.append(lemmas)
@@ -157,10 +195,30 @@ def turbo_demo():
                         deprel = deprels[i]
                         entity_tag = entity_tags[i]
                         coref = coref_info[i]
-                        coref_document += '\t'.join(['_', '0', str(i+1), token, tag,
-                                                     '*', str(head+1), deprel,
-                                                     '-', '-', '-', '-', entity_tag,
-                                                     coref])
+                        if sys.version_info[0] == 2:
+                            coref_document += '\t'.join(['_', 
+                                                        '0', 
+                                                        str(i+1),
+                                                        token, 
+                                                        tag,
+                                                        '*', 
+                                                        str(head+1), 
+                                                        deprel,
+                                                        '-', '-', '-', '-', 
+                                                        entity_tag,
+                                                        coref])                                                    
+                        if sys.version_info[0] == 3:                            
+                            coref_document += '\t'.join(['_', 
+                                                        '0', 
+                                                        str(i+1), 
+                                                        token,
+                                                        tag.decode(encoding='UTF-8'),
+                                                        '*', 
+                                                        str(head+1),
+                                                        deprel.decode(encoding='UTF-8'),
+                                                        '-', '-', '-', '-',
+                                                        entity_tag,
+                                                        coref])                                                    
                         coref_document += '\n'
                     coref_document += '\n'
                 #print coref_document
@@ -169,12 +227,18 @@ def turbo_demo():
             assert False
 
         #time.sleep(5)
-        print "Lock release"
+        print("Lock release")
         lock.release()
-        form.entity_tagged_sentence = entity_tagged_sentence.decode('utf-8')
-        form.parsed_sentence = parsed_sentence.decode('utf-8')
-        form.semantic_parsed_sentence = semantic_parsed_sentence.decode('utf-8')
-        form.coref_document = coref_document.decode('utf-8')
+        if sys.version_info[0] == 2:
+            form.entity_tagged_sentence = entity_tagged_sentence.decode('utf-8')
+            form.parsed_sentence = parsed_sentence.decode('utf-8')
+            form.semantic_parsed_sentence = semantic_parsed_sentence.decode('utf-8')
+            form.coref_document = coref_document.decode('utf-8')
+        if sys.version_info[0] == 3:
+            form.entity_tagged_sentence = entity_tagged_sentence
+            form.parsed_sentence = parsed_sentence
+            form.semantic_parsed_sentence = semantic_parsed_sentence        
+            form.coref_document = coref_document        
         import conll_to_json as ctj
         lines = form.parsed_sentence.split('\n')
         conll_string = ''
@@ -186,7 +250,7 @@ def turbo_demo():
                 conll_string += line + '\t_\t_\n'
         json_string = ctj.encode_conll(conll_string)
         form.parsed_sentence_json = json.dumps(json_string)
-        print form.parsed_sentence_json
+        print(form.parsed_sentence_json)
 
         lines = form.semantic_parsed_sentence.split('\n')
         conll2008_string = ''
@@ -198,7 +262,7 @@ def turbo_demo():
                 conll2008_string += line + '\n'
         json_string = ctj.encode_conll2008(conll2008_string)
         form.semantic_parsed_sentence_json = json.dumps(json_string)
-        print form.semantic_parsed_sentence_json
+        print(form.semantic_parsed_sentence_json)
 
         import pdb
         import decorate_coref as dc
@@ -210,5 +274,9 @@ def turbo_demo():
     return render_template('turbo_demo.html', form=form)
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0')
-    #app.run(host='0.0.0.0')
+    if len(sys.argv) == 2 :
+        #app.run(debug=True, host='0.0.0.0')
+        app.run(host='0.0.0.0', port=int(sys.argv[1]))
+    else:
+        #app.run(debug=True, host='0.0.0.0')
+        app.run(host='0.0.0.0')#, port=80)

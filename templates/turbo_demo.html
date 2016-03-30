@@ -23,7 +23,7 @@
 
 {% from "_formhelpers.html" import render_field %}
 
-<form method=post action="/turbo_demo">
+<form method=post action="">
   <dl>
     {{ form.sentence(rows=3, cols=60, placeholder='Type a sentence.') }}
     {{ render_field(form.language) }}

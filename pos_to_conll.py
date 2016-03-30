@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function    # (at top of module)
 """
 Converts from jmx's output to CoNLL format
 
@@ -67,20 +68,32 @@ def pos_to_conll(pos_tokens):
             cpostag = postag
         else:
             cpostag = postag[0:2]
-	conll_token = default_conll_token(
-            id=unicode(i + 1),
-            form=form,
-            cpostag=cpostag,
-            postag=postag)
-        output.append(u'\t'.join(field for field in conll_token))
-    output.append(u'')
-    return u'\n'.join(output)
+        if sys.version_info[0] == 2:
+            conll_token = default_conll_token(
+                id=unicode(i + 1),
+                form=form,
+                cpostag=cpostag,
+                postag=postag)
+            output.append(u'\t'.join(field for field in conll_token))
+        if sys.version_info[0] == 3:
+            conll_token = default_conll_token(
+                id=str(i + 1),
+                form=form,
+                cpostag=cpostag,
+                postag=postag)
+            output.append('\t'.join(field for field in conll_token))
+    if sys.version_info[0] == 2:
+        output.append(u'')
+        return u'\n'.join(output)   
+    if sys.version_info[0] == 3:        
+        output.append('')
+        return '\n'.join(output)
 
 
 def main(lines):
     for line in lines:
         conll = pos_to_conll(line.decode('utf8'))
-        print conll.encode('utf8')
+        print(conll.encode('utf8'))
 
 
 if __name__ == "__main__":
